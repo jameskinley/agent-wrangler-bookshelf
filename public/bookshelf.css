@@ -31,7 +31,7 @@ main:has(> .bks) { position: relative; }
   transition: transform .22s ease, width .22s ease, left .22s ease, right .22s ease, visibility 0s linear .22s;
 }
 .bks-shelf { width: var(--bks-w); z-index: 2; }
-.bks-preview { width: calc(50% + var(--bks-w-open) - var(--bks-w)); max-width: calc(100% - var(--bks-w)); z-index: 1; }
+.bks-preview { width: calc(var(--bks-pw, 50%) + var(--bks-w-open) - var(--bks-w)); max-width: calc(100% - var(--bks-w)); z-index: 1; }
 
 .bks[data-side="right"] .bks-shelf { right: 0; border-left: 1px solid var(--border-muted); transform: translateX(100%); }
 .bks[data-side="right"] .bks-preview { right: var(--bks-w); border-left: 1px solid var(--border-muted); transform: translateX(100%); }
@@ -135,3 +135,30 @@ main:has(> .bks) { position: relative; }
 .bks.mini .bks-shelf > :not(.bks-rail) { display: none; }
 .bks.mini .bks-rail { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; }
 .bks[data-side="left"] .bks-collapse .bks-icon { transform: rotate(180deg); }
+
+/* Preview resize grip on its outer edge. */
+.bks-grip { position: absolute; top: 0; bottom: 0; width: 6px; z-index: 1; cursor: col-resize; touch-action: none; }
+.bks[data-side="right"] .bks-grip { left: -3px; }
+.bks[data-side="left"] .bks-grip { right: -3px; }
+.bks-grip:hover, .bks-grip:focus-visible, .bks.resizing .bks-grip { background: color-mix(in srgb, var(--accent) 50%, transparent); outline: none; }
+.bks.resizing { user-select: none; }
+.bks.open.resizing .bks-shelf, .bks.open.previewing.resizing .bks-preview { transition: none; }
+
+/* Dialog: centred over the board like core's modals; the preview fills what the shelf leaves. */
+.bks-backdrop { display: none; }
+.bks.modal {
+  --bks-mw: var(--bks-w);
+  position: fixed; z-index: 20; top: 6vh; bottom: 6vh; right: auto;
+  left: calc((100vw - var(--bks-mw)) / 2); width: var(--bks-mw);
+  overflow: visible; border-radius: 10px; box-shadow: 0 12px 40px var(--shadow);
+}
+.bks.modal:not(.open) { display: none; }
+.bks.modal.previewing { --bks-mw: min(96vw, calc(var(--bks-w-open) + var(--bks-pw, min(860px, 70vw)))); }
+.bks.modal .bks-backdrop { display: block; position: fixed; inset: 0; z-index: 0; background: var(--overlay); pointer-events: auto; }
+.bks.modal .bks-shelf, .bks.modal .bks-preview { transform: none; transition: none; box-shadow: none; }
+.bks.modal .bks-shelf { border-radius: 10px; }
+.bks.modal.previewing .bks-preview { width: auto; max-width: none; }
+.bks.modal[data-side="right"] .bks-preview { left: 0; border-left: 0; border-radius: 10px 0 0 10px; }
+.bks.modal[data-side="left"] .bks-preview { right: 0; border-right: 0; border-radius: 0 10px 10px 0; }
+.bks.modal.previewing[data-side="right"] .bks-shelf { border-radius: 0 10px 10px 0; }
+.bks.modal.previewing[data-side="left"] .bks-shelf { border-radius: 10px 0 0 10px; }

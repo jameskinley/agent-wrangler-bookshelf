@@ -39,6 +39,9 @@ let seq = 0;
 
 let open = false;
 let mini = false;
+let modal = false;
+let previewW = 0;
+let drag = null;
 let side = 'right';
 let collapsed = new Set();
 let sessionId = null;
@@ -201,9 +204,26 @@ function build() {
     iconButton('more', 'File actions', (e) => selected && openMenu(e.currentTarget, selected, selectedOwner)),
     iconButton('close', 'Close preview', closePreview));
   els.pBody = el('div', 'bks-preview-body');
-  preview.append(phead, els.pBody);
+  const grip = el('div', 'bks-grip');
+  grip.tabIndex = 0;
+  grip.title = 'Drag to resize, double-click to reset';
+  grip.setAttribute('role', 'separator');
+  grip.setAttribute('aria-orientation', 'vertical');
+  grip.setAttribute('aria-label', 'Resize preview');
+  grip.addEventListener('pointerdown', startDrag);
+  grip.addEventListener('pointermove', moveDrag);
+  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) grip.addEventListener(type, endDrag);
+  grip.addEventListener('dblclick', () => setPreviewWidth(0));
+  grip.addEventListener('keydown', onGripKey);
+  preview.append(grip, phead, els.pBody);
+  els.preview = preview;
+  els.shelf = shelf;
 
-  root.append(preview, shelf);
+  const backdrop = el('div', 'bks-backdrop');
+  backdrop.addEventListener('click', () => setOpen(false));
+
+  root.append(backdrop, preview, shelf);
+  applyPreviewWidth();
   root.classList.toggle('mini', mini);
 }
 
@@ -223,7 +243,13 @@ function renderHead() {
 function place() {
   if (!root) return;
   const grid = document.getElementById('grid');
-  root.classList.toggle('on-board', onBoard);
+  root.classList.toggle('modal', modal);
+  root.classList.toggle('on-board', onBoard && !modal);
+  if (modal) {
+    if (root.parentNode !== document.body) document.body.appendChild(root);
+    root.style.top = root.style.left = root.style.width = '';
+    return;
+  }
   if (onBoard && grid) {
     if (root.parentNode !== grid.parentNode) grid.parentNode.appendChild(root);
     root.style.top = '0px';
@@ -263,6 +289,68 @@ function toggleShelf(name) {
   if (collapsed.has(name)) collapsed.delete(name); else collapsed.add(name);
   api.storage.set('collapsed', JSON.stringify([...collapsed]));
   renderTree(true);
+}
+
+// ---- preview width: 0 means the default, half the panel (or a set width in a dialog) ----
+
+function applyPreviewWidth() {
+  if (previewW) root.style.setProperty('--bks-pw', `${previewW}px`);
+  else root.style.removeProperty('--bks-pw');
+}
+
+function setPreviewWidth(w) {
+  previewW = w;
+  api.storage.set('previewWidth', w ? String(w) : '');
+  root.classList.add('resizing');
+  applyPreviewWidth();
+  requestAnimationFrame(() => requestAnimationFrame(() => { if (!drag) root?.classList.remove('resizing'); }));
+}
+
+// The width the preview would have with the shelf fully open, which is what --bks-pw holds.
+function basePreviewWidth() {
+  const open = parseFloat(getComputedStyle(root).getPropertyValue('--bks-w-open')) || 0;
+  return els.preview.offsetWidth - (open - els.shelf.offsetWidth);
+}
+
+function clampPreviewWidth(w) {
+  const room = (modal ? innerWidth * 0.96 : root.clientWidth) - els.shelf.offsetWidth;
+  return Math.round(Math.max(240, Math.min(w, room)));
+}
+
+// The grip sits on the preview's outer edge; a centred dialog grows both ways, so it moves at double rate.
+function startDrag(e) {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  e.currentTarget.setPointerCapture(e.pointerId);
+  drag = { x: e.clientX, w: basePreviewWidth(), dir: (side === 'right' ? -1 : 1) * (modal ? 2 : 1) };
+  root.classList.add('resizing');
+}
+
+function moveDrag(e) {
+  if (!drag) return;
+  previewW = clampPreviewWidth(drag.w + (e.clientX - drag.x) * drag.dir);
+  applyPreviewWidth();
+}
+
+function endDrag() {
+  if (!drag) return;
+  drag = null;
+  root.classList.remove('resizing');
+  api.storage.set('previewWidth', previewW ? String(previewW) : '');
+}
+
+function onGripKey(e) {
+  const step = { ArrowLeft: -40, ArrowRight: 40 }[e.key];
+  if (!step) return;
+  e.preventDefault();
+  const grow = side === 'right' ? -step : step;
+  setPreviewWidth(clampPreviewWidth(basePreviewWidth() + grow * (modal ? 2 : 1)));
+}
+
+function setModal(value) {
+  modal = value;
+  if (!root) return;
+  place();
 }
 
 // ---- tree ----
@@ -553,6 +641,8 @@ function start() {
   if (root) return;
   side = api.storage.get('side') === 'left' ? 'left' : 'right';
   mini = api.storage.get('mini') === '1';
+  modal = Boolean(api.settings().dialog);
+  previewW = Number(api.storage.get('previewWidth')) || 0;
   scope = api.storage.get('scope') === 'task' ? 'task' : 'session';
   try { collapsed = new Set(JSON.parse(api.storage.get('collapsed') || '[]')); } catch { collapsed = new Set(); }
   build();
@@ -570,6 +660,7 @@ function stop() {
   headObserver = null;
   closeMenus();
   setBlob(null);
+  drag = null;
   root?.remove();
   root = null;
   els = {};
@@ -619,6 +710,7 @@ export default {
     api = reg.api;
     start();
     api.onMessage(onMessage);
+    api.settings.onChange(() => setModal(Boolean(api.settings().dialog)));
     reg.register('panel.metaChip', {
       id: 'bookshelf-chip',
       mount(host) {

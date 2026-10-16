@@ -40,6 +40,12 @@ export default {
       help: 'Open the bookshelf on a plan as soon as the agent shelves it, if you are viewing that session.',
     },
     {
+      key: 'dialog',
+      type: 'toggle',
+      label: 'Open in a dialog',
+      help: 'Show the bookshelf and its previews in a dialog over the board instead of docked beside the chat.',
+    },
+    {
       key: 'privateShelves',
       type: 'toggle',
       label: 'Keep shelves private from other agents',
