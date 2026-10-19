@@ -40,6 +40,7 @@ let seq = 0;
 
 let open = false;
 let mini = false;
+let modal = false;
 let side = 'right';
 let width = DEFAULT_WIDTH;
 let previewWidth = null;
@@ -206,17 +207,23 @@ function build() {
   els.pBody = el('div', 'bks-preview-body');
   preview.append(resizeHandle(previewSizer), phead, els.pBody);
 
-  root.append(preview, shelf);
+  const backdrop = el('div', 'bks-backdrop');
+  backdrop.addEventListener('click', () => setOpen(false));
+
+  root.append(backdrop, preview, shelf);
   root.classList.toggle('mini', mini);
 }
 
 // ---- width: drag handles on the shelf's and preview's inner edges, remembered per viewer ----
 
+// A dialog sizes itself from these widths, so the window is the space it has to fit.
+const space = () => (modal ? Math.floor(innerWidth * 0.96) : root.clientWidth);
+
 function applyWidth() {
   if (!root) return;
-  const shelfWidth = clampWidth(width, root.clientWidth);
+  const shelfWidth = clampWidth(width, space());
   root.style.setProperty('--bks-w-open', `${shelfWidth}px`);
-  const pw = clampPreviewWidth(previewWidth, root.clientWidth, shelfWidth);
+  const pw = clampPreviewWidth(previewWidth, space(), shelfWidth);
   if (pw == null) root.style.removeProperty('--bks-pw');
   else root.style.setProperty('--bks-pw', `${pw}px`);
 }
@@ -224,8 +231,8 @@ function applyWidth() {
 // Each handle drives one stored width; the preview's default is CSS's half of the space.
 const shelfSizer = {
   label: 'Resize bookshelf',
-  current: () => clampWidth(width, root.clientWidth),
-  set(value) { width = clampWidth(value, root.clientWidth); applyWidth(); },
+  current: () => clampWidth(width, space()),
+  set(value) { width = clampWidth(value, space()); applyWidth(); },
   reset() { width = DEFAULT_WIDTH; applyWidth(); api.storage.set('width', ''); },
   save() { api.storage.set('width', String(width)); },
 };
@@ -235,9 +242,9 @@ const previewSizer = {
   // The preview also takes whatever width a collapsed shelf gives up; that extra isn't part of the stored width.
   current() {
     const rect = (sel) => root.querySelector(sel).getBoundingClientRect().width;
-    return rect('.bks-preview') - (clampWidth(width, root.clientWidth) - rect('.bks-shelf'));
+    return rect('.bks-preview') - (clampWidth(width, space()) - rect('.bks-shelf'));
   },
-  set(value) { previewWidth = clampPreviewWidth(value, root.clientWidth, clampWidth(width, root.clientWidth)); applyWidth(); },
+  set(value) { previewWidth = clampPreviewWidth(value, space(), clampWidth(width, space())); applyWidth(); },
   reset() { previewWidth = null; applyWidth(); api.storage.set('previewWidth', ''); },
   save() { api.storage.set('previewWidth', previewWidth == null ? '' : String(previewWidth)); },
 };
@@ -265,7 +272,9 @@ function resizeHandle(sizer) {
     handle.setPointerCapture(e.pointerId);
     root.classList.add('resizing');
     handle.classList.add('dragging');
-    const move = (ev) => sizer.set(dragWidth(startWidth, startX, ev.clientX, side));
+    // A centred dialog grows on both sides, so its edges move at half the pointer's rate.
+    const rate = modal ? 2 : 1;
+    const move = (ev) => sizer.set(dragWidth(startWidth, startX, startX + (ev.clientX - startX) * rate, side));
     // lostpointercapture also covers capture lost another way, such as the window losing focus mid-drag.
     const end = () => {
       handle.removeEventListener('pointermove', move);
@@ -309,7 +318,14 @@ function renderHead() {
 function place() {
   if (!root) return;
   const grid = document.getElementById('grid');
-  root.classList.toggle('on-board', onBoard);
+  root.classList.toggle('modal', modal);
+  root.classList.toggle('on-board', onBoard && !modal);
+  if (modal) {
+    if (root.parentNode !== document.body) document.body.appendChild(root);
+    root.style.top = root.style.left = root.style.width = '';
+    applyWidth();
+    return;
+  }
   if (onBoard && grid) {
     if (root.parentNode !== grid.parentNode) grid.parentNode.appendChild(root);
     root.style.top = '0px';
@@ -351,6 +367,12 @@ function toggleShelf(name) {
   if (collapsed.has(name)) collapsed.delete(name); else collapsed.add(name);
   api.storage.set('collapsed', JSON.stringify([...collapsed]));
   renderTree(true);
+}
+
+function setModal(value) {
+  modal = value;
+  if (!root) return;
+  place();
 }
 
 // ---- tree ----
@@ -643,6 +665,7 @@ function start() {
   mini = api.storage.get('mini') === '1';
   width = clampWidth(api.storage.get('width'));
   previewWidth = clampPreviewWidth(api.storage.get('previewWidth'));
+  modal = Boolean(api.settings().dialog);
   scope = api.storage.get('scope') === 'task' ? 'task' : 'session';
   try { collapsed = new Set(JSON.parse(api.storage.get('collapsed') || '[]')); } catch { collapsed = new Set(); }
   build();
@@ -709,6 +732,7 @@ export default {
     api = reg.api;
     start();
     api.onMessage(onMessage);
+    api.settings.onChange(() => setModal(Boolean(api.settings().dialog)));
     reg.register('panel.metaChip', {
       id: 'bookshelf-chip',
       mount(host) {

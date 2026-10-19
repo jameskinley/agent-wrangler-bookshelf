@@ -41,6 +41,10 @@ resize it (or focus the edge and use the arrow keys), and double-click the edge 
 resizes the same way from its own outer edge, kept so the shelf and preview fit the space. Both widths
 are remembered in this browser.
 
+Turn on **Open in a dialog** (Settings → Extensions → Bookshelf) to show the bookshelf and its
+previews in a dialog over the board instead of docked beside the chat. Click outside it or press
+Escape to close it.
+
 ![The bookshelf open beside the chat in the dark theme, showing a Plans and a Scratchpad shelf with a plan previewed](docs/images/bookshelf-dark.png)
 
 Right-click a file (or use its ⋯) for its actions:
