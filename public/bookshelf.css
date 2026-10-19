@@ -8,7 +8,8 @@ main:has(> .bks) { position: relative; }
 .bks-chip.showing { color: var(--blue-fg); background: color-mix(in srgb, var(--accent) 18%, var(--surface-2)); }
 
 .bks {
-  --bks-w-open: 260px;
+  /* Defaults only: client.js sets the dragged widths inline (width.js); --bks-pw falls back to 50%. */
+  --bks-w-open: 420px;
   --bks-w: var(--bks-w-open);
   position: absolute; left: 0; right: 0; bottom: 0; top: 0; z-index: 6;
   overflow: hidden; pointer-events: none;
@@ -129,20 +130,25 @@ main:has(> .bks) { position: relative; }
 .bks-sub > .bks-group-head { padding-left: 24px; }
 .bks-sub .bks-row { margin-left: 14px; }
 
+/* Drag handles on the shelf's and preview's inner edges; the rail rule below hides the shelf's. */
+.bks-resize {
+  position: absolute; top: 0; bottom: 0; width: 6px; z-index: 3;
+  cursor: col-resize; touch-action: none; background: transparent;
+}
+.bks[data-side="right"] .bks-resize { left: -3px; }
+.bks[data-side="left"] .bks-resize { right: -3px; }
+.bks-resize:hover, .bks-resize:focus-visible, .bks-resize.dragging { background: var(--accent); outline: none; }
+.bks.resizing { user-select: none; }
+/* Beats .bks.open.previewing .bks-preview, so neither panel trails the handle. */
+.bks.open.resizing .bks-shelf,
+.bks.open.previewing.resizing .bks-preview { transition: none; }
+
 /* Collapsed to a rail: the preview takes the width the shelf gave up. */
 .bks.mini { --bks-w: 36px; }
 .bks-rail { display: none; }
 .bks.mini .bks-shelf > :not(.bks-rail) { display: none; }
 .bks.mini .bks-rail { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; }
 .bks[data-side="left"] .bks-collapse .bks-icon { transform: rotate(180deg); }
-
-/* Preview resize grip on its outer edge. */
-.bks-grip { position: absolute; top: 0; bottom: 0; width: 6px; z-index: 1; cursor: col-resize; touch-action: none; }
-.bks[data-side="right"] .bks-grip { left: -3px; }
-.bks[data-side="left"] .bks-grip { right: -3px; }
-.bks-grip:hover, .bks-grip:focus-visible, .bks.resizing .bks-grip { background: color-mix(in srgb, var(--accent) 50%, transparent); outline: none; }
-.bks.resizing { user-select: none; }
-.bks.open.resizing .bks-shelf, .bks.open.previewing.resizing .bks-preview { transition: none; }
 
 /* Dialog: centred over the board like core's modals; the preview fills what the shelf leaves. */
 .bks-backdrop { display: none; }
