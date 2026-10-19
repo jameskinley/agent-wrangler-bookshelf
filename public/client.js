@@ -2,6 +2,7 @@
 // (or over the board for a task), file preview, context menu and chat-link capture. State lives at module level
 // because the chip host is rebuilt on every panel render.
 import { buildTree } from './tree.js';
+import { clampWidth, clampPreviewWidth, dragWidth, DEFAULT_WIDTH } from './width.js';
 
 const EXT_ID = 'bookshelf';
 const CHAT_LINK = '#chat-stream [data-md-path], .bks-preview [data-md-path]';
@@ -39,7 +40,10 @@ let seq = 0;
 
 let open = false;
 let mini = false;
+let modal = false;
 let side = 'right';
+let width = DEFAULT_WIDTH;
+let previewWidth = null;
 let collapsed = new Set();
 let sessionId = null;
 let entries = [];
@@ -192,7 +196,7 @@ function build() {
   els.empty = el('p', 'bks-empty', 'Nothing on the shelf yet.');
   const rail = el('div', 'bks-rail');
   rail.append(iconButton('book', 'Expand bookshelf', () => setMini(false)), iconButton('close', 'Close bookshelf', () => setOpen(false)));
-  shelf.append(head, els.list, els.empty, rail);
+  shelf.append(resizeHandle(shelfSizer), head, els.list, els.empty, rail);
 
   const preview = el('section', 'bks-preview');
   preview.setAttribute('aria-label', 'File preview');
@@ -202,10 +206,101 @@ function build() {
     iconButton('more', 'File actions', (e) => selected && openMenu(e.currentTarget, selected, selectedOwner)),
     iconButton('close', 'Close preview', closePreview));
   els.pBody = el('div', 'bks-preview-body');
-  preview.append(phead, els.pBody);
+  preview.append(resizeHandle(previewSizer), phead, els.pBody);
 
-  root.append(preview, shelf);
+  const backdrop = el('div', 'bks-backdrop');
+  backdrop.addEventListener('click', () => setOpen(false));
+
+  root.append(backdrop, preview, shelf);
   root.classList.toggle('mini', mini);
+}
+
+// ---- width: drag handles on the shelf's and preview's inner edges, remembered per viewer ----
+
+// A dialog sizes itself from these widths, so the window is the space it has to fit.
+const space = () => (modal ? Math.floor(innerWidth * 0.96) : root.clientWidth);
+
+function applyWidth() {
+  if (!root) return;
+  const shelfWidth = clampWidth(width, space());
+  root.style.setProperty('--bks-w-open', `${shelfWidth}px`);
+  const pw = clampPreviewWidth(previewWidth, space(), shelfWidth);
+  if (pw == null) root.style.removeProperty('--bks-pw');
+  else root.style.setProperty('--bks-pw', `${pw}px`);
+}
+
+// Each handle drives one stored width; the preview's default is CSS's half of the space.
+const shelfSizer = {
+  label: 'Resize bookshelf',
+  current: () => clampWidth(width, space()),
+  set(value) { width = clampWidth(value, space()); applyWidth(); },
+  reset() { width = DEFAULT_WIDTH; applyWidth(); api.storage.set('width', ''); },
+  save() { api.storage.set('width', String(width)); },
+};
+
+const previewSizer = {
+  label: 'Resize preview',
+  // The preview also takes whatever width a collapsed shelf gives up; that extra isn't part of the stored width.
+  current() {
+    const rect = (sel) => root.querySelector(sel).getBoundingClientRect().width;
+    return rect('.bks-preview') - (clampWidth(width, space()) - rect('.bks-shelf'));
+  },
+  set(value) { previewWidth = clampPreviewWidth(value, space(), clampWidth(width, space())); applyWidth(); },
+  reset() { previewWidth = null; applyWidth(); api.storage.set('previewWidth', ''); },
+  save() { api.storage.set('previewWidth', previewWidth == null ? '' : String(previewWidth)); },
+};
+
+// Keyboard and double-click resizes jump straight to the new width, like a drag, instead of animating.
+function instantly(fn) {
+  root.classList.add('resizing');
+  fn();
+  void root.offsetWidth;
+  requestAnimationFrame(() => root?.classList.remove('resizing'));
+}
+
+function resizeHandle(sizer) {
+  const handle = el('div', 'bks-resize');
+  handle.tabIndex = 0;
+  handle.title = 'Drag to resize, double-click to reset';
+  handle.setAttribute('role', 'separator');
+  handle.setAttribute('aria-orientation', 'vertical');
+  handle.setAttribute('aria-label', sizer.label);
+  handle.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = sizer.current();
+    handle.setPointerCapture(e.pointerId);
+    root.classList.add('resizing');
+    handle.classList.add('dragging');
+    // A centred dialog grows on both sides, so its edges move at half the pointer's rate.
+    const rate = modal ? 2 : 1;
+    const move = (ev) => sizer.set(dragWidth(startWidth, startX, startX + (ev.clientX - startX) * rate, side));
+    // lostpointercapture also covers capture lost another way, such as the window losing focus mid-drag.
+    const end = () => {
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', end);
+      handle.removeEventListener('pointercancel', end);
+      handle.removeEventListener('lostpointercapture', end);
+      root?.classList.remove('resizing');
+      handle.classList.remove('dragging');
+      sizer.save();
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', end);
+    handle.addEventListener('pointercancel', end);
+    handle.addEventListener('lostpointercapture', end);
+  });
+  handle.addEventListener('dblclick', () => instantly(() => sizer.reset()));
+  handle.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    const step = e.shiftKey ? 64 : 16;
+    const wider = (e.key === 'ArrowLeft') === (side === 'right');
+    instantly(() => sizer.set(sizer.current() + (wider ? step : -step)));
+    sizer.save();
+  });
+  return handle;
 }
 
 function setMini(value) {
@@ -224,12 +319,20 @@ function renderHead() {
 function place() {
   if (!root) return;
   const grid = document.getElementById('grid');
-  root.classList.toggle('on-board', onBoard);
+  root.classList.toggle('modal', modal);
+  root.classList.toggle('on-board', onBoard && !modal);
+  if (modal) {
+    if (root.parentNode !== document.body) document.body.appendChild(root);
+    root.style.top = root.style.left = root.style.width = '';
+    applyWidth();
+    return;
+  }
   if (onBoard && grid) {
     if (root.parentNode !== grid.parentNode) grid.parentNode.appendChild(root);
     root.style.top = '0px';
     root.style.left = `${grid.offsetLeft}px`;
     root.style.width = `${grid.offsetWidth}px`;
+    applyWidth();
     return;
   }
   root.style.left = root.style.width = '';
@@ -238,6 +341,7 @@ function place() {
   if (root.parentNode !== sidebar) sidebar.appendChild(root);
   const pane = ['chat-wrap', 'term-wrap'].map((id) => document.getElementById(id)).find((p) => p && !p.hidden && p.offsetParent);
   root.style.top = `${pane ? pane.offsetTop : 0}px`;
+  applyWidth();
 }
 
 function setOpen(value) {
@@ -264,6 +368,12 @@ function toggleShelf(name) {
   if (collapsed.has(name)) collapsed.delete(name); else collapsed.add(name);
   api.storage.set('collapsed', JSON.stringify([...collapsed]));
   renderTree(true);
+}
+
+function setModal(value) {
+  modal = value;
+  if (!root) return;
+  place();
 }
 
 // ---- tree ----
@@ -582,12 +692,15 @@ function onKeyDown(e) {
 
 const LISTENERS = [['click', onChatLink], ['keydown', onChatLink], ['pointerdown', onPointerDown], ['keydown', onKeyDown]];
 
-const onResize = () => { if (open && onBoard) place(); };
+const onResize = () => { if (open && onBoard) place(); else applyWidth(); };
 
 function start() {
   if (root) return;
   side = api.storage.get('side') === 'left' ? 'left' : 'right';
   mini = api.storage.get('mini') === '1';
+  width = clampWidth(api.storage.get('width'));
+  previewWidth = clampPreviewWidth(api.storage.get('previewWidth'));
+  modal = Boolean(api.settings().dialog);
   scope = api.storage.get('scope') === 'task' ? 'task' : 'session';
   try { collapsed = new Set(JSON.parse(api.storage.get('collapsed') || '[]')); } catch { collapsed = new Set(); }
   build();
@@ -655,6 +768,7 @@ export default {
     api = reg.api;
     start();
     api.onMessage(onMessage);
+    api.settings.onChange(() => setModal(Boolean(api.settings().dialog)));
     reg.register('panel.metaChip', {
       id: 'bookshelf-chip',
       mount(host) {

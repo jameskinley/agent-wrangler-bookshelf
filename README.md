@@ -38,6 +38,14 @@ Claude's own plan mode still shows its plan when asking you to approve it.
 Look for the book chip with a count in the session header, next to the checklist chip. Clicking it
 slides the bookshelf in beside the chat; selecting a file slides its preview out of the bookshelf.
 The ⇆ button moves it to the other side, and » collapses the shelf to a slim rail so the preview gets the room.
+The shelf opens wide enough to show its title (or the task's name) in full; drag its inner edge to
+resize it (or focus the edge and use the arrow keys), and double-click the edge to reset. The preview
+resizes the same way from its own outer edge, kept so the shelf and preview fit the space. Both widths
+are remembered in this browser.
+
+Turn on **Open in a dialog** (Settings → Extensions → Bookshelf) to show the bookshelf and its
+previews in a dialog over the board instead of docked beside the chat. Click outside it or press
+Escape to close it.
 
 ![The bookshelf open beside the chat in the dark theme, showing a Plans and a Scratchpad shelf with a plan previewed](docs/images/bookshelf-dark.png)
 
