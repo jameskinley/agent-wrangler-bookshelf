@@ -1,5 +1,5 @@
 import fsp from 'node:fs/promises';
-import { normalise, isMarkdown, isMissing, readShelved, checkShelvedFile } from './safe-file.js';
+import { normalise, isMarkdown, isMissing, readShelved, readShelvedImage, checkShelvedFile } from './safe-file.js';
 import { commandFor, runDetached, openWith } from './os-open.js';
 
 export const OPENED_SHELF = 'Opened';
@@ -24,7 +24,17 @@ export function bookshelfHandlers(run = runDetached, choose = openWith) {
       },
     },
     {
-      // The only browser-side way onto the shelf, limited to what core links in chat: markdown files.
+      // An image referenced inside a shelved markdown file, resolved and served for its preview.
+      // `msg.path` is the shelved document; safe-file keeps the read to images in its own folder.
+      type: 'bookshelf-asset',
+      async handler(msg, host) {
+        const md = shelvedPath(msg, host);
+        const reply = await readShelvedImage(md, msg.ref);
+        host.broadcast({ event: 'file', requestId: msg.requestId, sessionId: msg.sessionId, path: md, ref: msg.ref, ...reply });
+      },
+    },
+    {
+      // The only browser-side way onto the shelf, limited to what core links in chat: markdown.
       type: 'bookshelf-open-link',
       async handler(msg, host) {
         if (typeof msg.sessionId !== 'string' || !msg.sessionId) throw new Error('A session is required.');

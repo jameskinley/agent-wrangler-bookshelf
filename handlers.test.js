@@ -137,12 +137,36 @@ test('open-link replies missing for a file that does not exist, shelving nothing
 test('open-link only accepts existing markdown regular files', async () => {
   const { dir, host, send, file } = setup();
   const secret = file('secret.txt', 'secret');
+  const image = file('shots/ui.png', Buffer.from([1, 2, 3]));
   fs.symlinkSync(secret, path.join(dir, 'looks-like.md'));
   fs.mkdirSync(path.join(dir, 'folder.md'));
-  for (const p of [secret, path.join(dir, 'looks-like.md'), path.join(dir, 'folder.md'), 'rel.md', `${dir}/a\0.md`, null]) {
+  for (const p of [secret, image, path.join(dir, 'looks-like.md'), path.join(dir, 'folder.md'), 'rel.md', `${dir}/a\0.md`, null]) {
     await assert.rejects(send('open-link', { path: p, requestId: 'r' }), undefined, String(p));
   }
   await assert.rejects(send('open-link', { path: file('ok.md'), sessionId: undefined }), /session/);
   assert.deepEqual(host.stores.bookshelf.snapshot(), {});
   assert.deepEqual(host.broadcasts, []);
+});
+
+test('asset serves an image beside a shelved markdown file', async () => {
+  const { host, send, file } = setup();
+  const md = file('report.md');
+  file('shot.png', Buffer.from([1, 2, 3]));
+  host.stores.bookshelf.add('CARD1', md, 'Reports');
+  await send('asset', { path: md, ref: 'shot.png', requestId: 'r1' });
+  assert.deepEqual(host.broadcasts, [{
+    event: 'file', requestId: 'r1', sessionId: 'CARD1', path: md, ref: 'shot.png',
+    size: 3, kind: 'image', mime: 'image/png', base64: 'AQID',
+  }]);
+});
+
+test('asset refuses a reference out of the folder, and when the document is not shelved', async () => {
+  const { dir, host, send, file } = setup();
+  const md = file('docs/report.md');
+  file('secret.png', Buffer.from([9]));
+  host.stores.bookshelf.add('CARD1', md, 'Reports');
+  await send('asset', { path: md, ref: '../secret.png', requestId: 'r1' });
+  assert.equal(host.broadcasts[0].kind, 'error');
+  assert.match(host.broadcasts[0].message, /outside/i);
+  await assert.rejects(send('asset', { path: path.join(dir, 'unshelved.md'), ref: 'shot.png' }), /not on this session/);
 });
