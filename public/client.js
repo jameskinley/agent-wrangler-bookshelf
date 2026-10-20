@@ -43,6 +43,7 @@ let open = false;
 let mini = false;
 let modal = false;
 let closeTimer = null;
+let pendingTaskShelf = null;
 let side = 'right';
 let width = DEFAULT_WIDTH;
 let previewWidth = null;
@@ -121,6 +122,18 @@ function openOnBoard(id) {
   scope = 'task';
   onBoard = true;
   boardOpenedWith = api.selectedSessionId();
+  if (open) closePreview();
+  renderHead();
+  setOpen(true);
+}
+
+// The session's Actions menu: its task's shelves beside its chat, opening the session first if needed.
+function openTaskInSession(sid) {
+  if (sid !== sessionId) { pendingTaskShelf = sid; api.openSession(sid); return; }
+  pendingTaskShelf = null;
+  onBoard = false;
+  scope = 'task';
+  taskId = taskOf(sessionId);
   if (open) closePreview();
   renderHead();
   setOpen(true);
@@ -734,7 +747,7 @@ function stop() {
   els = {};
   open = false;
   onBoard = false;
-  selected = selectedOwner = previewId = reveal = null;
+  selected = selectedOwner = previewId = reveal = pendingTaskShelf = null;
   renderedSig = '';
   requests.clear();
   chips.clear();
@@ -771,6 +784,7 @@ function sync(session, g) {
   platform = g?.bookshelfPlatform;
   if (open) place();
   renderTree();
+  if (sid && sid === pendingTaskShelf) openTaskInSession(sid);
 }
 
 export default {
@@ -800,6 +814,13 @@ export default {
         renderChips();
       },
       unmount(host) { chips.delete(host); },
+    });
+    reg.register('card.action', {
+      id: 'bookshelf-session-task',
+      items(s, g) {
+        if (!g?.tasks?.assignments?.[s.sessionId]) return [];
+        return [{ label: 'Open task bookshelf', icon: MENU_ICON, run: () => { graph = g; platform = g?.bookshelfPlatform; openTaskInSession(s.sessionId); } }];
+      },
     });
     reg.register('task.action', {
       id: 'bookshelf-task',

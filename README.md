@@ -13,6 +13,8 @@ An [Agent Wrangler](https://github.com/PortSwigger/agent-wrangler) extension tha
 - A task's ⋯ menu has **Open bookshelf**: every session's shelves in that task, one group per
   session, over the board. Opening one of its sessions moves the panel beside that chat; the
   **Session | Task** switch in its header flips between the session's own shelves and the task's.
+- A session's **Actions** menu (and its card's right-click menu) has **Open task bookshelf**: its
+  task's shelves beside its chat, even when the session has shelved nothing itself.
 - Agents can list their task's shelves with `list_bookshelf`, so one session can pick up a plan or
   spec another wrote. Turn on **Keep shelves private from other agents** to limit each to its own.
 - Right-click a file to download it, copy its path, show it in your file manager, open it, open it with an app you
