@@ -5,7 +5,6 @@ import { buildTree } from './tree.js';
 import { clampWidth, clampPreviewWidth, dragWidth, DEFAULT_WIDTH } from './width.js';
 
 const EXT_ID = 'bookshelf';
-const CHAT_LINK = '#chat-stream [data-md-path], .bks-preview [data-md-path]';
 
 const SVG = (inner) => `<svg class="bks-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
 const BOOK_PATH = '<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/>';
@@ -686,16 +685,13 @@ function closeMenus() {
 
 // ---- document listeners ----
 
-function onChatLink(e) {
-  if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return;
-  const hit = e.target?.closest?.(CHAT_LINK);
-  if (!hit || !sessionId) return;
-  if (!stillEnabled()) { stop(); return; }
-  e.preventDefault();
-  e.stopPropagation();
+// A markdown link clicked in this session's chat or terminal opens on its shelf instead of core's preview.
+function openLink(file) {
+  if (!root || !file.sessionId || file.sessionId !== sessionId || !/\.(md|markdown)$/i.test(file.path)) return false;
   if (onBoard) { onBoard = false; taskId = taskOf(sessionId); }
   setOpen(true);
-  showPreview('bookshelf-open-link', hit.dataset.mdPath);
+  showPreview('bookshelf-open-link', file.path);
+  return true;
 }
 
 function onPointerDown(e) {
@@ -712,7 +708,7 @@ function onKeyDown(e) {
   e.preventDefault();
 }
 
-const LISTENERS = [['click', onChatLink], ['keydown', onChatLink], ['pointerdown', onPointerDown], ['keydown', onKeyDown]];
+const LISTENERS = [['pointerdown', onPointerDown], ['keydown', onKeyDown]];
 
 const onResize = () => { if (open && onBoard) place(); else applyWidth(); };
 
@@ -815,6 +811,7 @@ export default {
       },
       unmount(host) { chips.delete(host); },
     });
+    reg.register('file.open', { id: 'bookshelf-open-link', open: openLink });
     reg.register('card.action', {
       id: 'bookshelf-session-task',
       items(s, g) {

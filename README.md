@@ -6,8 +6,8 @@ An [Agent Wrangler](https://github.com/PortSwigger/agent-wrangler) extension tha
 
 - Agents shelve files with the `shelve_file` and `unshelve_file` tools, guided by the `bookshelf` skill.
 - A book chip in the session header shows the count and opens the panel.
-- Clicking a markdown file link in the chat opens it on the bookshelf (under **Opened**)
-  instead of the core preview.
+- Clicking a markdown file link in a session's chat or terminal opens it on the bookshelf (under
+  **Opened**) instead of the core preview. Needs Agent Wrangler host API 1.39.0 or later.
 - Images embedded in a shelved markdown file render in its preview, whether referenced by a relative
   path (`![](images/shot.png)`) or an absolute local one, so a report can carry its screenshots.
 - A task's ⋯ menu has **Open bookshelf**: every session's shelves in that task, one group per
@@ -61,8 +61,8 @@ session keeps its shelf; purging it removes it.
 ## Install
 
 In the wrangler's Extensions tab, install from this repository's git URL. It asks for
-`board:rebuild`, `board:broadcast` and `sessions:read` (to find a session's task for
-`list_bookshelf`).
+`board:rebuild`, `board:broadcast`, `sessions:read` (to find a session's task for
+`list_bookshelf`) and `files:open` (to open the file links you click on the shelf).
 
 ## Security
 
