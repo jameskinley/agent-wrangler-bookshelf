@@ -45,6 +45,9 @@ resize it (or focus the edge and use the arrow keys), and double-click the edge 
 resizes the same way from its own outer edge, kept so the shelf and preview fit the space. Both widths
 are remembered in this browser.
 
+Turn on **Make room beside the session** to shrink the session's terminal or chat so it sits
+beside the docked bookshelf instead of under it; the terminal redraws at the new width.
+
 Turn on **Open in a dialog** (Settings → Extensions → Bookshelf) to show the bookshelf and its
 previews in a dialog over the board instead of docked beside the chat. Click outside it or press
 Escape to close it.

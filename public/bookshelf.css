@@ -169,3 +169,7 @@ main:has(> .bks) { position: relative; }
 .bks.modal[data-side="left"] .bks-preview { right: 0; border-right: 0; border-radius: 0 10px 10px 0; }
 .bks.modal.previewing[data-side="right"] .bks-shelf { border-radius: 0 10px 10px 0; }
 .bks.modal.previewing[data-side="left"] .bks-shelf { border-radius: 10px 0 0 10px; }
+
+/* Make room: the session pane is padded by what the docked panels cover (client.js updateRoom). */
+#sidebar.bks-room[data-bks-side="right"] :is(#term-wrap, #chat-wrap) { padding-right: var(--bks-room); }
+#sidebar.bks-room[data-bks-side="left"] :is(#term-wrap, #chat-wrap) { padding-left: var(--bks-room); }

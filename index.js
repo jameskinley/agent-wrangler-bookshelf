@@ -46,6 +46,12 @@ export default {
       help: 'Show the bookshelf and its previews in a dialog over the board instead of docked beside the chat.',
     },
     {
+      key: 'makeRoom',
+      type: 'toggle',
+      label: 'Make room beside the session',
+      help: 'Shrink the session\'s terminal or chat to sit beside the bookshelf instead of under it, so none of it is hidden. The terminal redraws at the new width when the bookshelf opens, closes or is resized.',
+    },
+    {
       key: 'privateShelves',
       type: 'toggle',
       label: 'Keep shelves private from other agents',

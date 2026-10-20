@@ -43,6 +43,8 @@ let open = false;
 let mini = false;
 let modal = false;
 let closeTimer = null;
+let makeRoom = false;
+let roomObserver = null;
 let pendingTaskShelf = null;
 let side = 'right';
 let width = DEFAULT_WIDTH;
@@ -354,6 +356,12 @@ function place() {
   const sidebar = document.getElementById('sidebar');
   if (!sidebar) return;
   if (root.parentNode !== sidebar) sidebar.appendChild(root);
+  // Making room docks the panels beside a minimum-width pane, so the width clamps keep them off it.
+  if (makeRoom) {
+    const w = Math.max(0, sidebar.clientWidth - MIN_PANE);
+    root.style.width = `${w}px`;
+    root.style.left = side === 'left' ? '0px' : `${sidebar.clientWidth - w}px`;
+  }
   const pane = ['chat-wrap', 'term-wrap'].map((id) => document.getElementById(id)).find((p) => p && !p.hidden && p.offsetParent);
   root.style.top = `${pane ? pane.offsetTop : 0}px`;
   applyWidth();
@@ -383,6 +391,7 @@ function switchSide() {
   side = side === 'right' ? 'left' : 'right';
   api.storage.set('side', side);
   root.dataset.side = side;
+  if (open) place();
 }
 
 function toggleShelf(name) {
@@ -714,7 +723,35 @@ function onKeyDown(e) {
 
 const LISTENERS = [['click', onChatLink], ['keydown', onChatLink], ['pointerdown', onPointerDown], ['keydown', onKeyDown]];
 
-const onResize = () => { if (open && onBoard) place(); else applyWidth(); };
+const onResize = () => { if (open) place(); else applyWidth(); };
+
+// ---- make room: pad the session pane by what the docked panels cover, so the terminal refits beside them ----
+
+const MIN_PANE = 280;
+
+function updateRoom() {
+  const sidebar = document.getElementById('sidebar');
+  if (!sidebar || !root || root.classList.contains('resizing')) return;
+  let px = 0;
+  if (makeRoom && !modal && !onBoard && root.classList.contains('open')) {
+    px = root.querySelector('.bks-shelf').offsetWidth
+      + (root.classList.contains('previewing') ? root.querySelector('.bks-preview').offsetWidth : 0);
+  }
+  sidebar.classList.toggle('bks-room', px > 0);
+  sidebar.dataset.bksSide = side;
+  sidebar.style.setProperty('--bks-room', `${px}px`);
+}
+
+function clearRoom() {
+  const sidebar = document.getElementById('sidebar');
+  sidebar?.classList.remove('bks-room');
+  sidebar?.style.removeProperty('--bks-room');
+}
+
+function readSettings() {
+  modal = Boolean(api.settings().dialog);
+  makeRoom = Boolean(api.settings().makeRoom);
+}
 
 function start() {
   if (root) return;
@@ -722,11 +759,14 @@ function start() {
   mini = api.storage.get('mini') === '1';
   width = clampWidth(api.storage.get('width'));
   previewWidth = clampPreviewWidth(api.storage.get('previewWidth'));
-  modal = Boolean(api.settings().dialog);
+  readSettings();
   scope = api.storage.get('scope') === 'task' ? 'task' : 'session';
   try { collapsed = new Set(JSON.parse(api.storage.get('collapsed') || '[]')); } catch { collapsed = new Set(); }
   build();
   place();
+  roomObserver = new MutationObserver(updateRoom);
+  roomObserver.observe(root, { attributes: true, attributeFilter: ['class', 'style', 'data-side'] });
+  root.addEventListener('transitionend', updateRoom);
   for (const [type, fn] of LISTENERS) document.addEventListener(type, fn, true);
   window.addEventListener('resize', onResize);
   headObserver = new MutationObserver(() => { if (!stillEnabled()) stop(); });
@@ -738,6 +778,9 @@ function stop() {
   window.removeEventListener('resize', onResize);
   headObserver?.disconnect();
   headObserver = null;
+  roomObserver?.disconnect();
+  roomObserver = null;
+  clearRoom();
   closeMenus();
   setBlob(null);
   revokeAssets();
@@ -792,7 +835,7 @@ export default {
     api = reg.api;
     start();
     api.onMessage(onMessage);
-    api.settings.onChange(() => setModal(Boolean(api.settings().dialog)));
+    api.settings.onChange(() => { readSettings(); setModal(modal); });
     reg.register('panel.metaChip', {
       id: 'bookshelf-chip',
       mount(host) {
