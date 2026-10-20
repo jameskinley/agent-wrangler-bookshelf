@@ -42,6 +42,7 @@ let seq = 0;
 let open = false;
 let mini = false;
 let modal = false;
+let closeTimer = null;
 let side = 'right';
 let width = DEFAULT_WIDTH;
 let previewWidth = null;
@@ -345,9 +346,14 @@ function place() {
   applyWidth();
 }
 
+const SLIDE_MS = 220;
+
+// Closing with a file open slides the preview shut first, then the shelf.
 function setOpen(value) {
   open = value;
   if (!root) return;
+  clearTimeout(closeTimer);
+  const sliding = !open && !modal && root.classList.contains('previewing') && !matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (open) {
     place();
     renderTree(true);
@@ -355,7 +361,8 @@ function setOpen(value) {
     closeMenus();
     closePreview();
   }
-  root.classList.toggle('open', open);
+  if (sliding) closeTimer = setTimeout(() => root?.classList.remove('open'), SLIDE_MS);
+  else root.classList.toggle('open', open);
   renderChips();
 }
 
@@ -721,6 +728,7 @@ function stop() {
   closeMenus();
   setBlob(null);
   revokeAssets();
+  clearTimeout(closeTimer);
   root?.remove();
   root = null;
   els = {};
