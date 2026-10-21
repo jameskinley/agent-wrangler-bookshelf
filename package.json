@@ -13,7 +13,7 @@
     "label": "Bookshelf",
     "description": "A per-session panel of files the agent wants you to see.",
     "author": "James Kinley",
-    "requires": ["board:rebuild", "board:broadcast", "sessions:read"]
+    "requires": ["board:rebuild", "board:broadcast", "sessions:read", "files:open"]
   },
   "dependencies": {
     "zod": "^3.25.76"
