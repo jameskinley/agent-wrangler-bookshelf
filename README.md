@@ -6,6 +6,8 @@ An [Agent Wrangler](https://github.com/PortSwigger/agent-wrangler) extension tha
 
 - Agents shelve files with the `shelve_file` and `unshelve_file` tools, guided by the `bookshelf` skill.
 - A book chip in the session header shows the count and opens the panel.
+- HTML files (`.html`, `.htm`) preview as rendered pages, HTML and CSS only: scripts, forms, popups
+  and network loads are blocked.
 - Clicking a markdown file link in a session's chat or terminal opens it on the bookshelf (under
   **Opened**) instead of the core preview. Needs Agent Wrangler host API 1.39.0 or later.
 - Images embedded in a shelved markdown file render in its preview, whether referenced by a relative

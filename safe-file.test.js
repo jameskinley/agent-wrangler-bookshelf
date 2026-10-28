@@ -36,6 +36,8 @@ test('readShelved reads each kind', async () => {
   const d = tmp();
   const write = (name, body) => { fs.writeFileSync(path.join(d, name), body); return path.join(d, name); };
   assert.deepEqual(await readShelved(write('a.md', '# hi')), { size: 4, kind: 'markdown', text: '# hi' });
+  assert.deepEqual(await readShelved(write('a.html', '<p>hi</p>')), { size: 9, kind: 'html', text: '<p>hi</p>' });
+  assert.equal((await readShelved(write('b.HTM', '<p>hi</p>'))).kind, 'html');
   assert.deepEqual(await readShelved(write('a.txt', 'plain')), { size: 5, kind: 'text', text: 'plain' });
   const png = await readShelved(write('a.png', Buffer.from([1, 2, 3])));
   assert.deepEqual(png, { size: 3, kind: 'image', mime: 'image/png', base64: 'AQID' });

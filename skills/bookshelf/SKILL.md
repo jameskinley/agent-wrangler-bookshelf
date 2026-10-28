@@ -27,6 +27,9 @@ for plans and specs a sibling session wrote before you plan the same work again.
   an image you reference from a shelved markdown report (relative or absolute local path) renders in
   the report's own preview, so shelve the images beside or under the report's folder.
 
+A shelved `.html` file renders in its preview as pure HTML and CSS: no JavaScript, and nothing is
+loaded from the network or disk, so inline styles and `data:` images only.
+
 ## Plans
 
 When you have a plan for the human, write it to a markdown file and shelve it with `plan: true`

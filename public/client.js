@@ -68,7 +68,7 @@ let renderedSig = '';
 const stillEnabled = () => Boolean(document.querySelector(`link[data-ext="${EXT_ID}"]`));
 const basename = (p) => String(p).split(/[\\/]/).filter(Boolean).pop() || String(p);
 const isImage = (p) => /\.(png|jpe?g|gif|webp|svg)$/i.test(p);
-const isText = (p) => /\.(md|markdown|txt|log|json|ya?ml|csv)$/i.test(p);
+const isText = (p) => /\.(md|markdown|html?|txt|log|json|ya?ml|csv)$/i.test(p);
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -584,6 +584,20 @@ function status(text, actions = false) {
   els.pBody.replaceChildren(box);
 }
 
+// Pure HTML + CSS: the empty sandbox disables scripts, forms, popups and navigation, and the CSP
+// (also set on the frame for browsers that honour the attribute) blocks every network load.
+const HTML_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:";
+
+function htmlFrame(text) {
+  const frame = el('iframe', 'bks-html');
+  frame.title = 'HTML preview';
+  frame.setAttribute('sandbox', '');
+  frame.setAttribute('csp', HTML_CSP);
+  frame.referrerPolicy = 'no-referrer';
+  frame.srcdoc = `<!doctype html><meta http-equiv="Content-Security-Policy" content="${HTML_CSP}">${text}`;
+  return frame;
+}
+
 function renderPreview(reply) {
   if (reply.kind === 'missing') missing.add(reply.path); else missing.delete(reply.path);
   revokeAssets();
@@ -596,6 +610,10 @@ function renderPreview(reply) {
       els.pBody.replaceChildren(md);
       break;
     }
+    case 'html':
+      setBlob(null);
+      els.pBody.replaceChildren(htmlFrame(reply.text || ''));
+      break;
     case 'text':
       setBlob(null);
       els.pBody.replaceChildren(el('pre', 'bks-pre', reply.text || ''));

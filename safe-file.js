@@ -10,6 +10,7 @@ export const MAX_READ_BYTES = 5 * 1024 * 1024;
 export const MAX_TEXT_BYTES = 1024 * 1024;
 
 const MARKDOWN = new Set(['.md', '.markdown']);
+const HTML = new Set(['.html', '.htm']);
 const IMAGE_MIME = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
@@ -63,6 +64,7 @@ export async function checkShelvedFile(p) {
 export function classify(p, buf) {
   const ext = path.extname(p).toLowerCase();
   if (MARKDOWN.has(ext)) return { kind: 'markdown', text: buf.toString('utf8') };
+  if (HTML.has(ext) && buf.length <= MAX_TEXT_BYTES && isUtf8(buf)) return { kind: 'html', text: buf.toString('utf8') };
   if (IMAGE_MIME[ext]) return { kind: 'image', mime: IMAGE_MIME[ext], base64: buf.toString('base64') };
   if (buf.length <= MAX_TEXT_BYTES && !buf.includes(0) && isUtf8(buf)) return { kind: 'text', text: buf.toString('utf8') };
   return { kind: 'other', mime: 'application/octet-stream', base64: buf.toString('base64') };
